@@ -1,0 +1,17 @@
+# Virtual environment
+.venv/
+__pycache__/
+*.pyc
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Streamlit local config
+.streamlit/
+
+# Large datasets (recommended to keep local or store via Git LFS / cloud storage)
+historical_trader_data.csv
+merged_trader_sentiment.csv
+
+# Word task file (optional, usually not uploaded)
+DS Task.docx

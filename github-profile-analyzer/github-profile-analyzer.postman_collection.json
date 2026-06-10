@@ -1,0 +1,468 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "GitHub Profile Analyzer API",
+    "description": "A complete Postman collection for the GitHub Profile Analyzer REST API.\n\nThis API retrieves, analyzes, and stores public GitHub profile data and repository insights using Node.js, Express, and MySQL.\n\n## Base URL\n`http://localhost:5000`\n\n## Endpoints\n1. Analyze GitHub Profile\n2. Get All Profiles (with pagination & search)\n3. Get Profile by Database ID\n4. Get Profile by GitHub Username\n5. Delete Profile by Database ID\n\n## Setup\n1. Clone the repository\n2. Run `npm install`\n3. Configure `.env` with your MySQL credentials\n4. Import `schema.sql` into MySQL\n5. Run `npm start`\n6. Import this collection into Postman",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string",
+      "description": "Base URL of the API server. Change this to your deployed URL when using a live environment."
+    },
+    {
+      "key": "username",
+      "value": "octocat",
+      "type": "string",
+      "description": "Default GitHub username used in requests."
+    },
+    {
+      "key": "profile_id",
+      "value": "1",
+      "type": "string",
+      "description": "Default database profile ID used in requests."
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Analyze GitHub User Profile",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success true\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "});",
+              "",
+              "pm.test(\"Response contains profile data\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data).to.have.property('username');",
+              "    pm.expect(json.data).to.have.property('total_stars');",
+              "    pm.expect(json.data).to.have.property('total_forks');",
+              "    pm.expect(json.data).to.have.property('most_starred_repository');",
+              "    pm.expect(json.data).to.have.property('most_used_programming_language');",
+              "});",
+              "",
+              "// Auto-save the returned ID for use in other requests",
+              "const json = pm.response.json();",
+              "if (json.data && json.data.id) {",
+              "    pm.collectionVariables.set('profile_id', json.data.id);",
+              "    console.log('Saved profile_id:', json.data.id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/analyze/{{username}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "analyze", "{{username}}"]
+        },
+        "description": "Fetches the GitHub profile for a given username, computes repository insights (total stars, forks, most starred repo, dominant language, etc.), saves/updates the data in MySQL, and returns the full analyzed result.\n\n**URL Parameter:**\n- `username` (required): A valid GitHub username (e.g., `octocat`, `torvalds`, `gaearon`)\n\n**Notes:**\n- If the profile already exists in the database, it will be updated (upsert).\n- Rate-limited to 100 requests per 15 minutes per IP."
+      },
+      "response": [
+        {
+          "name": "Success - Profile Analyzed",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analyze/octocat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analyze", "octocat"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json; charset=utf-8"
+            }
+          ],
+          "body": "{\n  \"success\": true,\n  \"message\": \"GitHub profile for 'octocat' has been successfully analyzed and stored.\",\n  \"data\": {\n    \"id\": 1,\n    \"username\": \"octocat\",\n    \"name\": \"The Octocat\",\n    \"bio\": \"GitHub's mascot\",\n    \"avatar_url\": \"https://avatars.githubusercontent.com/u/583231?v=4\",\n    \"profile_url\": \"https://github.com/octocat\",\n    \"public_repos\": 8,\n    \"followers\": 15000,\n    \"following\": 9,\n    \"created_at\": \"2011-01-25T18:44:36.000Z\",\n    \"updated_at\": \"2024-03-22T12:00:00.000Z\",\n    \"account_age_years\": 15.37,\n    \"total_repositories\": 8,\n    \"total_stars\": 350,\n    \"total_forks\": 120,\n    \"most_starred_repository\": \"Spoon-Knife\",\n    \"most_used_programming_language\": \"HTML\",\n    \"average_stars_per_repository\": 43.75,\n    \"analyzed_at\": \"2026-06-09T07:30:00.000Z\"\n  }\n}"
+        },
+        {
+          "name": "Error - User Not Found (404)",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analyze/this-user-does-not-exist-xyz",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analyze", "this-user-does-not-exist-xyz"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": false,\n  \"message\": \"GitHub user 'this-user-does-not-exist-xyz' not found.\"\n}"
+        },
+        {
+          "name": "Error - Invalid Username (400)",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/analyze/invalid--username!!",
+              "host": ["{{base_url}}"],
+              "path": ["api", "analyze", "invalid--username!!"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": false,\n  \"message\": \"Invalid GitHub username format.\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "2. Get All Analyzed Profiles",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success true\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "});",
+              "",
+              "pm.test(\"Response has pagination metadata\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.pagination).to.have.property('total_records');",
+              "    pm.expect(json.pagination).to.have.property('current_page');",
+              "    pm.expect(json.pagination).to.have.property('total_pages');",
+              "    pm.expect(json.pagination).to.have.property('limit');",
+              "});",
+              "",
+              "pm.test(\"Response data is an array\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/profiles?page=1&limit=10",
+          "host": ["{{base_url}}"],
+          "path": ["api", "profiles"],
+          "query": [
+            {
+              "key": "page",
+              "value": "1",
+              "description": "Page number (default: 1)"
+            },
+            {
+              "key": "limit",
+              "value": "10",
+              "description": "Records per page (default: 10, max: 100)"
+            },
+            {
+              "key": "search",
+              "value": "",
+              "description": "Search keyword to filter by username or name",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Retrieves all analyzed profiles stored in the MySQL database.\n\n**Query Parameters (all optional):**\n- `page`: Page number for pagination (default: `1`)\n- `limit`: Records per page (default: `10`, max: `100`)\n- `search`: Filter results by matching `username` or `name`\n\n**Example Variations:**\n- Paginate: `?page=2&limit=5`\n- Search: `?search=torvalds`\n- Combined: `?page=1&limit=5&search=octo`"
+      },
+      "response": [
+        {
+          "name": "Success - Profiles Listed",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles?page=1&limit=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": true,\n  \"data\": [\n    {\n      \"id\": 1,\n      \"username\": \"octocat\",\n      \"name\": \"The Octocat\",\n      \"bio\": \"GitHub's mascot\",\n      \"avatar_url\": \"https://avatars.githubusercontent.com/u/583231?v=4\",\n      \"profile_url\": \"https://github.com/octocat\",\n      \"public_repos\": 8,\n      \"followers\": 15000,\n      \"following\": 9,\n      \"total_stars\": 350,\n      \"total_forks\": 120,\n      \"most_starred_repository\": \"Spoon-Knife\",\n      \"most_used_programming_language\": \"HTML\",\n      \"average_stars_per_repository\": 43.75,\n      \"analyzed_at\": \"2026-06-09T07:30:00.000Z\"\n    }\n  ],\n  \"pagination\": {\n    \"total_records\": 1,\n    \"current_page\": 1,\n    \"limit\": 10,\n    \"total_pages\": 1\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "2a. Get All Profiles - With Search Filter",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Search results contain matching profiles\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json.data).to.be.an('array');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/profiles?page=1&limit=5&search=octo",
+          "host": ["{{base_url}}"],
+          "path": ["api", "profiles"],
+          "query": [
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "5" },
+            { "key": "search", "value": "octo", "description": "Search term matching username or name" }
+          ]
+        },
+        "description": "Retrieves profiles with a search filter. The `search` parameter filters profiles by matching `username` or `name` fields (case-insensitive)."
+      },
+      "response": []
+    },
+    {
+      "name": "3. Get Profile by Database ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success true\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "});",
+              "",
+              "pm.test(\"Profile has correct structure\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data).to.have.property('id');",
+              "    pm.expect(json.data).to.have.property('username');",
+              "    pm.expect(json.data).to.have.property('total_stars');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/profiles/{{profile_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "profiles", "{{profile_id}}"]
+        },
+        "description": "Retrieves a single analyzed profile by its auto-incremented MySQL database ID.\n\n**URL Parameter:**\n- `id` (required): Numeric ID of the profile in the database (e.g., `1`)\n\n**Note:** The `profile_id` collection variable is automatically set after running the 'Analyze GitHub User Profile' request."
+      },
+      "response": [
+        {
+          "name": "Success - Profile Found",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles", "1"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 1,\n    \"username\": \"octocat\",\n    \"name\": \"The Octocat\",\n    \"bio\": \"GitHub's mascot\",\n    \"avatar_url\": \"https://avatars.githubusercontent.com/u/583231?v=4\",\n    \"profile_url\": \"https://github.com/octocat\",\n    \"public_repos\": 8,\n    \"followers\": 15000,\n    \"following\": 9,\n    \"created_at\": \"2011-01-25T18:44:36.000Z\",\n    \"updated_at\": \"2024-03-22T12:00:00.000Z\",\n    \"account_age_years\": 15.37,\n    \"total_repositories\": 8,\n    \"total_stars\": 350,\n    \"total_forks\": 120,\n    \"most_starred_repository\": \"Spoon-Knife\",\n    \"most_used_programming_language\": \"HTML\",\n    \"average_stars_per_repository\": 43.75,\n    \"analyzed_at\": \"2026-06-09T07:30:00.000Z\"\n  }\n}"
+        },
+        {
+          "name": "Error - Profile Not Found (404)",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles/9999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles", "9999"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": false,\n  \"message\": \"Profile with ID 9999 not found.\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "4. Get Profile by GitHub Username",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success true\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "});",
+              "",
+              "pm.test(\"Username matches request\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.data.username.toLowerCase()).to.equal(pm.collectionVariables.get('username').toLowerCase());",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/profiles/username/{{username}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "profiles", "username", "{{username}}"]
+        },
+        "description": "Retrieves a single analyzed profile stored in the database by GitHub username.\n\n**URL Parameter:**\n- `username` (required): A valid GitHub username (e.g., `octocat`)\n\n**Note:** Only returns profiles that have been previously analyzed. Returns 404 if the username hasn't been analyzed yet."
+      },
+      "response": [
+        {
+          "name": "Success - Profile Found by Username",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles/username/octocat",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles", "username", "octocat"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": true,\n  \"data\": {\n    \"id\": 1,\n    \"username\": \"octocat\",\n    \"name\": \"The Octocat\",\n    \"bio\": \"GitHub's mascot\",\n    \"avatar_url\": \"https://avatars.githubusercontent.com/u/583231?v=4\",\n    \"profile_url\": \"https://github.com/octocat\",\n    \"public_repos\": 8,\n    \"followers\": 15000,\n    \"following\": 9,\n    \"created_at\": \"2011-01-25T18:44:36.000Z\",\n    \"updated_at\": \"2024-03-22T12:00:00.000Z\",\n    \"account_age_years\": 15.37,\n    \"total_repositories\": 8,\n    \"total_stars\": 350,\n    \"total_forks\": 120,\n    \"most_starred_repository\": \"Spoon-Knife\",\n    \"most_used_programming_language\": \"HTML\",\n    \"average_stars_per_repository\": 43.75,\n    \"analyzed_at\": \"2026-06-09T07:30:00.000Z\"\n  }\n}"
+        },
+        {
+          "name": "Error - Username Not Analyzed Yet (404)",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles/username/someunanalyzeduser",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles", "username", "someunanalyzeduser"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": false,\n  \"message\": \"Profile for username 'someunanalyzeduser' not found.\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "5. Delete Profile by Database ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test(\"Response has success true\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.success).to.be.true;",
+              "});",
+              "",
+              "pm.test(\"Deletion message is present\", function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.message).to.include('deleted');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/profiles/{{profile_id}}",
+          "host": ["{{base_url}}"],
+          "path": ["api", "profiles", "{{profile_id}}"]
+        },
+        "description": "Permanently deletes a stored profile record from the MySQL database by its database ID.\n\n**URL Parameter:**\n- `id` (required): Numeric database ID of the profile to delete\n\n⚠️ **Warning:** This action is irreversible. The profile must be re-analyzed to restore it."
+      },
+      "response": [
+        {
+          "name": "Success - Profile Deleted",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles", "1"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": true,\n  \"message\": \"Profile with ID 1 successfully deleted.\"\n}"
+        },
+        {
+          "name": "Error - Profile Not Found (404)",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/profiles/9999",
+              "host": ["{{base_url}}"],
+              "path": ["api", "profiles", "9999"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "body": "{\n  \"success\": false,\n  \"message\": \"Profile with ID 9999 not found.\"\n}"
+        }
+      ]
+    }
+  ]
+}
